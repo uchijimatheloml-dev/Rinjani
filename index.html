@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><title>Rinjani Rest Stop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#fff3dc;--fg:#4a2f1d;--ac:#ee9646;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#3a2a22;--fg:#fbe9d0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#3a2a22;--fg:#fbe9d0;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#2a2238;font-family:system-ui,-apple-system,sans-serif;color:var(--fg)}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+.p{background:var(--bg);color:var(--fg);border-radius:14px;box-shadow:0 4px 18px #0004}
+#hud{position:fixed;left:10px;top:calc(env(safe-area-inset-top,0px) + 10px);padding:8px 12px;font-size:14px;line-height:1.35}
+#hud b{font-size:16px}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 150px);transform:translate(-50%,-20px);opacity:0;pointer-events:none;padding:10px 16px;font-size:14px;font-weight:600;transition:transform .4s,opacity .4s;max-width:88vw;text-align:center}
+#toast.on{transform:translate(-50%,0);opacity:1}
+#bottom{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+#bar{width:min(280px,60vw);height:16px;border-radius:8px;background:var(--bg);overflow:hidden;box-shadow:0 2px 8px #0004}
+#fill{height:100%;width:100%;background:var(--ac);transition:width .3s}
+#slab{font-size:12px;color:#fff;text-shadow:0 1px 3px #000}
+#btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;pointer-events:auto;max-width:92vw}
+button{font:inherit;font-size:14px;font-weight:600;border:0;border-radius:12px;padding:9px 12px;background:var(--bg);color:var(--fg);box-shadow:0 2px 8px #0004;cursor:pointer}
+button:active{transform:scale(.95)}
+#joy{position:fixed;left:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);width:110px;height:110px;border-radius:50%;background:#ffffff33;border:2px solid #ffffff66;touch-action:none}
+#knob{position:absolute;left:35px;top:35px;width:40px;height:40px;border-radius:50%;background:#ffffffaa}
+#book{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,90vw);padding:16px 18px;display:none}
+#book h3{margin:0 0 10px}#book div{padding:5px 0;font-size:15px}.off{opacity:.45}
+#pbar{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);transform:translateX(-50%);display:none;gap:8px;align-items:center}
+body.photo #hud,body.photo #bottom,body.photo #joy,body.photo #toast,body.photo #mini,body.photo #help,body.photo #quiz{display:none}
+body.photo #pbar{display:flex}
+#help{position:fixed;right:10px;top:calc(env(safe-area-inset-top,0px) + 154px);padding:8px 12px;font-size:12px;max-width:200px}
+#mini{position:fixed;inset:auto;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);width:130px;height:130px;border-radius:50%;border:3px solid var(--bg);box-shadow:0 4px 14px #0006;pointer-events:none;touch-action:auto}
+#quiz{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(400px,92vw);max-height:88vh;overflow:auto;padding:16px 18px;display:none;z-index:5}
+#quiz h3{margin:0 0 8px;font-size:15px}#quiz p{margin:6px 0 10px;font-size:15px;line-height:1.4}
+.opt{display:block;width:100%;text-align:left;margin:6px 0;box-shadow:0 1px 4px #0004;border:2px solid transparent}
+.opt.ok{background:#bfe8b0;color:#1d3a14}.opt.bad{background:#f2b8b0;color:#4a1a14}
+#qx{font-size:13px;margin:8px 0;min-height:18px}
+@media (max-width:600px){#help{display:none}}
+</style></head><body>
+<div id="hud" class="p"><b id="zn">Jalur Pendakian</b><br><span id="alt"></span> · <span id="clk"></span></div>
+<div id="help" class="p">WASD / panah: jalan<br>Seret layar: putar kamera<br>E duduk · 1 teh · 2 mie · 3 api · Q kuis · B buku · P foto</div>
+<div id="toast" class="p"></div>
+<canvas id="mini" width="240" height="240"></canvas>
+<div id="joy"><div id="knob"></div></div>
+<div id="bottom"><div id="slab">Stamina</div><div id="bar"><div id="fill"></div></div>
+<div id="btns"><button id="bSit">🧘 Duduk</button><button id="bTea">☕ Teh</button><button id="bMie">🍜 Mie</button><button id="bFire">🔥 Api</button><button id="bQuiz">🧠 Kuis</button><button id="bBook">📖 Buku</button><button id="bPhoto">📷 Foto</button><button id="bSnd">🔇 Suara</button></div></div>
+<div id="book" class="p"><h3 id="bt">Buku Catatan Pendaki</h3><div id="bl"></div><button id="bClose" style="margin-top:8px">Tutup</button></div>
+<div id="quiz" class="p"><h3 id="qh"></h3><div id="qb"></div><div id="qx"></div><button id="qn" style="display:none">Lanjut ➜</button> <button id="qClose">Tutup</button></div>
+<div id="pbar"><button id="pFilter">Filter: Normal</button><button id="pExit">Keluar</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const sm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t)};
+const ZONES=[{id:'g',n:'Gerbang Sembalun',x:0,z:0,r:30},{id:'p',n:'Pos 3 Padabalong',x:0,z:-160,r:30},{id:'l',n:'Plawangan Sembalun',x:0,z:-320,r:30},{id:'s',n:'Puncak Rinjani',x:0,z:-500,r:28},{id:'a',n:'Danau Segara Anak',x:-130,z:-380,r:50}];
+function H(x,z){
+  let h=-z*.28+Math.sin(x*.05+z*.02)*3+Math.cos(z*.07)*2.5;
+  h+=Math.max(0,Math.abs(x)-55)*.6;
+  for(const c of [0,-160,-320]){const w=sm(45,22,Math.abs(z-c))*sm(50,28,Math.abs(x));h=h*(1-w)+(-c*.28)*w}
+  h+=40*Math.exp(-(x*x+(z+500)**2)/3200);
+  const d=Math.hypot(x+130,z+380),w=sm(110,55,d);
+  return h*(1-w)+(66+d*.12)*w;
+}
+// ===== Scene =====
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.prepend(renderer.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(60,1,.5,1600);
+const hemi=new THREE.HemisphereLight(0xcfe3ff,0x6b5a40,.6),sun=new THREE.DirectionalLight(0xffffff,1);
+scene.add(hemi,sun);
+function resize(){renderer.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',resize);resize();
+// terrain
+const STOPS=[[0,'#d6b55a'],[28,'#c9b058'],[45,'#4f7a46'],[75,'#5d7f4a'],[95,'#9a8470'],[135,'#8a8088'],[185,'#e4e0e8']].map(([y,c])=>[y,new THREE.Color(c)]);
+function ramp(y){for(let i=1;i<STOPS.length;i++)if(y<=STOPS[i][0]){const a=STOPS[i-1],b=STOPS[i];return a[1].clone().lerp(b[1],Math.max(0,(y-a[0])/(b[0]-a[0])))}return STOPS[STOPS.length-1][1].clone()}
+const geo=new THREE.PlaneGeometry(500,720,100,144);geo.rotateX(-Math.PI/2);geo.translate(0,0,-300);
+const P=geo.attributes.position,col=new Float32Array(P.count*3);
+for(let i=0;i<P.count;i++){
+  const x=P.getX(i),z=P.getZ(i),y=H(x,z);P.setY(i,y);
+  const c=Math.hypot(x+130,z+380)<60?new THREE.Color('#c9b98a'):ramp(y),k=.92+Math.random()*.14;
+  col.set([c.r*k,c.g*k,c.b*k],i*3);
+}
+geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.computeVertexNormals();
+scene.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,flatShading:true})));
+const far=new THREE.Mesh(new THREE.ConeGeometry(300,320,7),new THREE.MeshLambertMaterial({color:0x7a6f90,flatShading:true}));
+far.position.set(0,110,-780);scene.add(far);
+const water=new THREE.Mesh(new THREE.CircleGeometry(58,24),new THREE.MeshLambertMaterial({color:0x3ba0d0,transparent:true,opacity:.8}));
+water.rotation.x=-Math.PI/2;water.position.set(-130,74,-380);scene.add(water);
+const bj=new THREE.Mesh(new THREE.ConeGeometry(14,16,6),new THREE.MeshLambertMaterial({color:0x7a5a50,flatShading:true}));
+bj.position.set(-130,76,-380);scene.add(bj);
+// trees & grass
+const dm=new THREE.Object3D(),rnd=(a,b)=>a+Math.random()*(b-a),sgn=()=>Math.random()<.5?-1:1;
+const trees=new THREE.InstancedMesh(new THREE.ConeGeometry(3,9,5),new THREE.MeshLambertMaterial({color:0x3f6f48,flatShading:true}),150);
+for(let i=0;i<150;i++){const x=sgn()*rnd(20,110),z=rnd(-210,-110),s=rnd(.8,1.5);dm.position.set(x,H(x,z)+4.5*s,z);dm.scale.set(s,s,s);dm.rotation.set(0,0,0);dm.updateMatrix();trees.setMatrixAt(i,dm.matrix)}
+scene.add(trees);
+const NG=500,grass=new THREE.InstancedMesh(new THREE.ConeGeometry(.35,2.4,3),new THREE.MeshLambertMaterial({color:0xe3c76a}),NG),gp=[];
+for(let i=0;i<NG;i++){let x=sgn()*rnd(6,120);gp.push([x,rnd(-120,55),Math.random()*6])}
+function box(w,h,d,c,x,y,z,p){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:c,flatShading:true}));m.position.set(x,y,z);(p||scene).add(m);return m}
+scene.add(grass);
+// props
+const warungs=[],fires=[];
+for(const z of ZONES.slice(0,3)){
+  const wx=z.x-14,wz=z.z-4,y=H(wx,wz);
+  box(10,6,6,0x96643c,wx,y+3,wz);box(12,1,8,0xbe4632,wx,y+6.5,wz);warungs.push({x:wx,z:wz});
+  const fx=z.x+12,fz=z.z-6,fy=H(fx,fz);
+  box(3,.6,3,0x3c322d,fx,fy+.3,fz);
+  const fl=new THREE.Mesh(new THREE.ConeGeometry(.9,2.4,5),new THREE.MeshBasicMaterial({color:0xff9a3c}));fl.position.set(fx,fy+1.8,fz);fl.visible=false;scene.add(fl);
+  const li=new THREE.PointLight(0xff9a50,0,45);li.position.set(fx,fy+3,fz);scene.add(li);
+  fires.push({x:fx,z:fz,fl,li,lit:false});
+  for(let k=0;k<4;k++){const a=k*Math.PI/2,tx=fx+Math.cos(a)*4.5,tz=fz+Math.sin(a)*4.5;box(2.2,.5,2.2,0xc89650,tx,H(tx,tz)+.25,tz)}
+}
+const tc=[0xe85d4a,0x4a8fe8,0xf2b138,0x57b894];
+for(let k=0;k<4;k++){const x=-34+k*10+(k>1?18:0),z=-338,t=new THREE.Mesh(new THREE.ConeGeometry(4.2,4.5,4),new THREE.MeshLambertMaterial({color:tc[k],flatShading:true}));t.position.set(x,H(x,z)+2.2,z);t.rotation.y=Math.PI/4;scene.add(t)}
+{const y=H(0,-500);box(.4,12,.4,0xdddddd,0,y+6,-500);box(4,2.4,.2,0xd62828,2.2,y+10.5,-500)}
+// clouds
+const clouds=[];for(let i=0;i<14;i++){const c=new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(14,26),0),new THREE.MeshLambertMaterial({color:0xffffff,transparent:true,opacity:.85,flatShading:true}));c.scale.set(1.8,.6,1);c.position.set(rnd(-300,300),rnd(150,260),rnd(-650,50));scene.add(c);clouds.push(c)}
+// stars & fireflies
+const sp=new Float32Array(900);for(let i=0;i<300;i++){const a=rnd(0,6.28),b=rnd(.1,1.4),r=700;sp.set([Math.cos(a)*Math.cos(b)*r,Math.sin(b)*r,Math.sin(a)*Math.cos(b)*r],i*3)}
+const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+const stars=new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,fog:false}));scene.add(stars);
+const NF=70,fp=new Float32Array(NF*3),fg=new THREE.BufferGeometry();fg.setAttribute('position',new THREE.BufferAttribute(fp,3));
+const flies=new THREE.Points(fg,new THREE.PointsMaterial({color:0xdfff7a,size:5,sizeAttenuation:false,transparent:true,opacity:0}));scene.add(flies);
+// player
+const pl=new THREE.Group();
+box(1,1.3,.7,0xe8742e,0,1.2,0,pl);box(.6,.6,.6,0xf0c8a0,0,2.1,0,pl);box(.9,1.1,.5,0x3d7a58,0,1.35,-.6,pl);box(.7,.2,.7,0xb03a2e,0,2.5,0,pl);
+scene.add(pl);
+const S={x:0,z:34,y:0,sit:false,st:100,full:0,yaw:0,pitch:.38,dist:13,clock:6};
+S.y=H(S.x,S.z);
+// ===== UI =====
+let tt;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),3200)}
+let stamped=new Set();try{stamped=new Set(JSON.parse(localStorage.getItem('rinjani')||'[]'))}catch(e){}
+let QS={};try{QS=JSON.parse(localStorage.getItem('rinjani_quiz')||'{}')}catch(e){}
+function drawBook(){$('bl').innerHTML=ZONES.map(z=>`<div class="${stamped.has(z.id)?'':'off'}">${stamped.has(z.id)?'✅':'⬜'} Stempel ${z.n}${QS[z.id]?' · kuis '+QS[z.id].s+'/3':''}</div>`).join('');$('bt').textContent=`📖 Buku Catatan (${stamped.size}/5)`+(stamped.size==5?' 🏅':'')}
+drawBook();
+const near=(l,r)=>l.find(o=>Math.hypot(o.x-S.x,o.z-S.z)<r);
+function rest(a){S.st=Math.min(100,S.st+a)}
+const act={
+  sit(){S.sit=!S.sit;toast(S.sit?'Duduk santai… stamina pulih 🧘':'Lanjut jalan')},
+  tea(){if(!near(warungs,12))return toast('Dekati warung pos dulu ☕');rest(40);toast('☕ Teh hangat! Stamina pulih')},
+  mie(){if(!near(warungs,12))return toast('Dekati warung pos dulu 🍜');rest(30);S.full=75;toast('🍜 Kenyang Hangat: stamina turun lebih pelan')},
+  fire(){const f=near(fires,14);if(!f)return toast('Dekati api unggun dulu 🔥');f.lit=!f.lit;f.fl.visible=f.lit;f.li.intensity=f.lit?2:0;toast(f.lit?'Api unggun menyala! Duduk di dekatnya 🔥':'Api dipadamkan')},
+  book(){const b=$('book');b.style.display=b.style.display=='block'?'none':'block';drawBook()},
+  photo(){document.body.classList.toggle('photo')},
+  quiz(){openQuiz()}
+};
+$('bSit').onclick=act.sit;$('bTea').onclick=act.tea;$('bMie').onclick=act.mie;$('bFire').onclick=act.fire;$('bBook').onclick=act.book;$('bClose').onclick=act.book;$('bPhoto').onclick=act.photo;$('pExit').onclick=act.photo;
+const FIL=[['Normal','none'],['Golden Hour','sepia(.35) saturate(1.4) brightness(1.05)'],['Misty Morning','contrast(.9) saturate(.8) brightness(1.1) hue-rotate(-10deg)'],['Film Retro 90s','sepia(.55) contrast(1.1) saturate(.9)'],['Starry Night','brightness(.9) saturate(1.2) hue-rotate(15deg)']];let fi=0;
+$('pFilter').onclick=()=>{fi=(fi+1)%FIL.length;renderer.domElement.style.filter=FIL[fi][1];$('pFilter').textContent='Filter: '+FIL[fi][0]};
+// input
+const K={};addEventListener('keydown',e=>{K[e.code]=1;const c=e.code;if(c=='KeyE')act.sit();if(c=='Digit1')act.tea();if(c=='Digit2')act.mie();if(c=='Digit3')act.fire();if(c=='KeyB')act.book();if(c=='KeyP')act.photo();if(c=='KeyQ')act.quiz()});
+addEventListener('keyup',e=>K[e.code]=0);
+let jx=0,jy=0;const joy=$('joy'),kn=$('knob');
+function jm(e){const r=joy.getBoundingClientRect();let dx=e.clientX-r.left-55,dy=e.clientY-r.top-55;const m=Math.hypot(dx,dy),L=45;if(m>L){dx*=L/m;dy*=L/m}jx=dx/L;jy=dy/L;kn.style.transform=`translate(${dx}px,${dy}px)`}
+joy.onpointerdown=e=>{joy.setPointerCapture(e.pointerId);jm(e)};joy.onpointermove=e=>{if(joy.hasPointerCapture(e.pointerId))jm(e)};
+joy.onpointerup=joy.onpointercancel=()=>{jx=jy=0;kn.style.transform=''};
+let drag=null;const cv=renderer.domElement;
+cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!drag)return;S.yaw-=(e.clientX-drag[0])*.006;S.pitch=Math.min(1.1,Math.max(.1,S.pitch+(e.clientY-drag[1])*.004));drag=[e.clientX,e.clientY]};
+cv.onpointerup=cv.onpointercancel=()=>drag=null;
+cv.onwheel=e=>{S.dist=Math.min(26,Math.max(6,S.dist+e.deltaY*.01))};
+// audio
+let ac,wg,on=false,hr=0;
+$('bSnd').onclick=()=>{
+  if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();const b=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    const s=ac.createBufferSource();s.buffer=b;s.loop=true;const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=500;wg=ac.createGain();wg.gain.value=.1;
+    const l=ac.createOscillator(),lg=ac.createGain();l.frequency.value=.12;lg.gain.value=.06;l.connect(lg).connect(wg.gain);l.start();s.connect(f).connect(wg).connect(ac.destination);s.start();
+    setInterval(()=>{if(!on||hr<7||hr>18||Math.random()<.4)return;for(let i=0;i<2;i++){const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+i*.18;o.frequency.setValueAtTime(2400+Math.random()*1200,t);o.frequency.linearRampToValueAtTime(3400,t+.1);g.gain.setValueAtTime(.03,t);g.gain.linearRampToValueAtTime(0,t+.12);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.14)}},2600)}
+  on=!on;on?ac.resume():ac.suspend();$('bSnd').textContent=on?'🔊 Suara':'🔇 Suara'};
+// ===== Minimap =====
+const mapC=document.createElement('canvas');mapC.width=135;mapC.height=350;
+{const x=mapC.getContext('2d'),im=x.createImageData(135,350);
+ for(let j=0;j<350;j++)for(let i=0;i<135;i++){const wx=-200+i*2,wz=60-j*2,y=H(wx,wz);
+  const c=Math.hypot(wx+130,wz+380)<58?new THREE.Color('#4aa6d6'):ramp(y),k=Math.min(1.25,Math.max(.75,1+(H(wx-2,wz+2)-y)*.04)),o=(j*135+i)*4;
+  im.data[o]=Math.min(255,c.r*255*k);im.data[o+1]=Math.min(255,c.g*255*k);im.data[o+2]=Math.min(255,c.b*255*k);im.data[o+3]=255}
+ x.putImageData(im,0,0)}
+const mx=$('mini').getContext('2d');let mfc=0;
+function drawMini(){
+  if(document.body.classList.contains('photo')||(mfc++%2))return;
+  const W=240,sc=W/160;
+  mx.fillStyle='#1e1a2e';mx.fillRect(0,0,W,W);
+  mx.drawImage(mapC,(S.x+200)/2-40,(60-S.z)/2-40,80,80,0,0,W,W);
+  for(const z of ZONES){const px=W/2+(z.x-S.x)*sc,py=W/2+(z.z-S.z)*sc;if(px<-10||px>W+10||py<-10||py>W+10)continue;
+    mx.beginPath();mx.arc(px,py,7,0,6.283);mx.fillStyle=stamped.has(z.id)?'#ffd23f':'#fff';mx.fill();mx.lineWidth=2;mx.strokeStyle='#4a2f1d';mx.stroke()}
+  mx.save();mx.translate(W/2,W/2);mx.rotate(Math.atan2(Math.sin(pl.rotation.y),-Math.cos(pl.rotation.y)));
+  mx.fillStyle='#e8742e';mx.strokeStyle='#fff';mx.lineWidth=2;mx.beginPath();mx.moveTo(0,-11);mx.lineTo(8,9);mx.lineTo(0,5);mx.lineTo(-8,9);mx.closePath();mx.fill();mx.stroke();mx.restore();
+  mx.fillStyle='#fff';mx.font='bold 18px sans-serif';mx.textAlign='center';mx.fillText('U',W/2,20)
+}
+// ===== Kuis Biologi Kelas XI =====
+let curZone=null,qz=null;
+const QZ={
+ g:{t:'Sel',q:[
+  ['Organel yang menghasilkan energi (ATP) melalui respirasi sel adalah…',['Mitokondria','Ribosom','Lisosom','Badan Golgi'],'Mitokondria disebut pembangkit tenaga sel karena menghasilkan ATP.'],
+  ['Struktur yang hanya dimiliki sel tumbuhan, bukan sel hewan, adalah…',['Dinding sel','Membran sel','Sitoplasma','Ribosom'],'Dinding sel (selulosa), kloroplas, dan vakuola besar khas sel tumbuhan.'],
+  ['Tempat sintesis protein dalam sel adalah…',['Ribosom','Nukleus','Vakuola','Sentriol'],'Ribosom menerjemahkan mRNA menjadi rantai polipeptida.']]},
+ p:{t:'Transpor Membran',q:[
+  ['Perpindahan zat dari konsentrasi tinggi ke rendah tanpa energi disebut…',['Difusi','Transpor aktif','Endositosis','Eksositosis'],'Difusi mengikuti gradien konsentrasi dan tidak membutuhkan ATP.'],
+  ['Osmosis adalah perpindahan … melalui membran semipermeabel.',['molekul air','ion natrium saja','protein besar','lemak'],'Air berpindah dari larutan hipotonik ke larutan hipertonik.'],
+  ['Sel darah merah dalam larutan hipertonik akan…',['mengerut (krenasi)','pecah (lisis)','tidak berubah','membelah'],'Air keluar dari sel sehingga sel mengerut.']]},
+ l:{t:'Pencernaan Kimiawi',q:[
+  ['Enzim amilase pada air liur mencerna…',['karbohidrat (amilum)','protein','lemak','vitamin'],'Amilase mengubah amilum menjadi maltosa di rongga mulut.'],
+  ['Pepsin di lambung berperan mencerna…',['protein','lemak','amilum','selulosa'],'Pepsin (aktif bersama HCl) memecah protein menjadi pepton.'],
+  ['Empedu membantu pencernaan lemak dengan cara…',['mengemulsikan lemak','memecah protein','mengubah amilum','menyerap air'],'Empedu dari hati mengemulsi lemak menjadi butiran kecil agar mudah dicerna lipase.']]},
+ s:{t:'Organ Pencernaan',q:[
+  ['Penyerapan sari makanan terutama terjadi di…',['usus halus','lambung','kerongkongan','usus besar'],'Vili usus halus memperluas permukaan penyerapan nutrien.'],
+  ['Penyerapan kembali air dan pembentukan feses terjadi di…',['usus besar','usus halus','pankreas','hati'],'Usus besar menyerap air dan mineral dari sisa makanan.'],
+  ['Urutan saluran pencernaan yang benar adalah…',['Mulut → kerongkongan → lambung → usus halus → usus besar','Mulut → lambung → kerongkongan → usus besar → usus halus','Mulut → usus halus → lambung → kerongkongan → usus besar','Kerongkongan → mulut → lambung → usus halus → usus besar'],'Makanan didorong oleh gerak peristaltik sepanjang saluran pencernaan.']]},
+ a:{t:'Campuran',q:[
+  ['Transpor aktif berbeda dari difusi karena transpor aktif…',['membutuhkan energi (ATP)','mengikuti gradien konsentrasi','hanya memindahkan air','tidak memakai protein pembawa'],'Transpor aktif melawan gradien konsentrasi memakai ATP, contohnya pompa Na-K.'],
+  ['Organ yang menghasilkan enzim amilase, lipase, dan tripsin adalah…',['Pankreas','Hati','Kantung empedu','Lambung'],'Pankreas mengeluarkan getah pankreas ke duodenum.'],
+  ['Organel yang mencerna zat atau organel rusak dengan enzim hidrolitik adalah…',['Lisosom','Mitokondria','Retikulum endoplasma','Kloroplas'],'Lisosom berperan dalam pencernaan intraseluler.']]}
+};
+function openQuiz(){
+  if(!curZone)return toast('Kuis ada di setiap pos. Datangi pos terdekat 🧠');
+  const d=QZ[curZone.id];
+  qz={id:curZone.id,i:0,s:0,q:d.q.map(([t,o,e])=>({t,e,o:o.map((x,k)=>[x,k==0]).sort(()=>Math.random()-.5)}))};
+  $('quiz').style.display='block';showQ();
+}
+function showQ(){
+  const q=qz.q[qz.i],b=$('qb');b.innerHTML='';$('qx').textContent='';$('qn').style.display='none';
+  $('qh').textContent='🧠 Kuis '+ZONES.find(z=>z.id==qz.id).n+' · '+QZ[qz.id].t+' ('+(qz.i+1)+'/3)';
+  const p=document.createElement('p');p.textContent=q.t;b.appendChild(p);
+  q.o.forEach(([txt,ok])=>{const e=document.createElement('button');e.className='opt';e.textContent=txt;e.onclick=()=>{
+    if(q.done)return;q.done=1;
+    if(ok){qz.s++;e.classList.add('ok')}else{e.classList.add('bad');b.querySelectorAll('.opt').forEach(x=>{if(q.o.find(o=>o[0]==x.textContent)[1])x.classList.add('ok')})}
+    $('qx').textContent=(ok?'✅ Benar! ':'❌ Kurang tepat. ')+q.e;$('qn').textContent=qz.i<2?'Lanjut ➜':'Lihat hasil';$('qn').style.display='inline-block'};b.appendChild(e)});
+}
+$('qn').onclick=()=>{if(qz.i<2){qz.i++;showQ()}else endQ()};
+function endQ(){
+  const prev=QS[qz.id];if(!prev||qz.s>prev.s)QS[qz.id]={s:qz.s};
+  try{localStorage.setItem('rinjani_quiz',JSON.stringify(QS))}catch(e){}
+  if(qz.s>=2){S.st=100;toast('🎉 Skor '+qz.s+'/3! Stamina pulih penuh')}else toast('Skor '+qz.s+'/3, coba lagi untuk skor lebih baik 💪');
+  closeQ();drawBook();
+}
+function closeQ(){$('quiz').style.display='none';qz=null}
+$('bQuiz').onclick=openQuiz;$('qClose').onclick=closeQ;
+// ===== Loop =====
+const SK=[[0,'#0b1030'],[5,'#2a2a55'],[6.5,'#c9b8d8'],[9,'#8ec5e8'],[15,'#7fbfe8'],[17.5,'#ffb069'],[19,'#3b2a55'],[21,'#0b1030'],[24,'#0b1030']].map(([h,c])=>[h,new THREE.Color(c)]);
+function sky(h){for(let i=1;i<SK.length;i++)if(h<=SK[i][0])return SK[i-1][1].clone().lerp(SK[i][1],(h-SK[i-1][0])/(SK[i][0]-SK[i-1][0]));return SK[8][1].clone()}
+scene.fog=new THREE.FogExp2(0x8ec5e8,.004);
+let last=performance.now(),T=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+  // time
+  S.clock=(S.clock+dt*24/1320)%24;const h=S.clock;hr=h;
+  const sc=sky(h);scene.background=sc;scene.fog.color.copy(sc);
+  const mist=Math.max(0,1-Math.abs(h-6)/2.2),gold=Math.max(0,1-Math.abs(h-17.5)/1.6),night=Math.max(1-sm(5,6.5,h),sm(18.5,20.5,h));
+  scene.fog.density=.0035+.006*mist;
+  const a=(h-6)/12*Math.PI;sun.position.set(S.x+Math.cos(a)*250,Math.max(20,Math.sin(a)*250),S.z+80);sun.target.position.set(S.x,S.y,S.z);sun.target.updateMatrixWorld();
+  sun.intensity=Math.max(0,Math.sin(a))*1.1+.08;sun.color.set(0xffffff).lerp(new THREE.Color(0xff9a50),gold);
+  hemi.intensity=.22+.45*(1-night);
+  stars.material.opacity=night;stars.position.set(S.x,0,S.z);
+  // move
+  let mx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0)+jx,mf=(K.KeyW||K.ArrowUp?1:0)-(K.KeyS||K.ArrowDown?1:0)-jy;
+  const m=Math.min(1,Math.hypot(mx,mf));
+  if(m>.1&&S.sit){S.sit=false}
+  if(m>.1){
+    const sy=Math.sin(S.yaw),cy=Math.cos(S.yaw);
+    let dx=(-sy*mf+cy*mx),dz=(-cy*mf-sy*mx);const l=Math.hypot(dx,dz)||1;dx/=l;dz/=l;
+    const spd=(S.st<=0?5:9)*m;
+    S.x=Math.max(-220,Math.min(220,S.x+dx*spd*dt));S.z=Math.max(-650,Math.min(50,S.z+dz*spd*dt));
+    pl.rotation.y=Math.atan2(dx,dz);
+    S.st=Math.max(0,S.st-(S.full>0?.5:1.2)*dt*m);
+  }else if(S.sit){
+    const f=near(fires.filter(f=>f.lit),20);rest((f?10:6)*dt);
+  }else rest(1.5*dt);
+  if(S.full>0)S.full-=dt;
+  S.y+=(H(S.x,S.z)-S.y)*Math.min(1,dt*12);
+  pl.position.set(S.x,S.y,S.z);pl.scale.y=S.sit?.7:1;
+  // camera
+  const cp=Math.cos(S.pitch);let cx=S.x+Math.sin(S.yaw)*cp*S.dist,cz=S.z+Math.cos(S.yaw)*cp*S.dist,cyy=Math.max(S.y+2+Math.sin(S.pitch)*S.dist,H(cx,cz)+2);
+  cam.position.set(cx,cyy,cz);cam.lookAt(S.x,S.y+1.6,S.z);
+  // grass sway, clouds, fireflies
+  for(let i=0;i<NG;i++){const g=gp[i];dm.position.set(g[0],H(g[0],g[1])+1.1,g[1]);dm.rotation.set(0,0,Math.sin(T*1.6+g[2])*.18);dm.scale.set(1,1,1);dm.updateMatrix();grass.setMatrixAt(i,dm.matrix)}
+  grass.instanceMatrix.needsUpdate=true;
+  for(const c of clouds){c.position.x+=dt*3;if(c.position.x>320)c.position.x=-320}
+  const fa=fg.attributes.position;
+  for(let i=0;i<NF;i++){const px=S.x+Math.sin(i*12.9+T*.3)*30,pz=S.z+Math.cos(i*7.7+T*.25)*30;fa.setXYZ(i,px,H(px,pz)+1.5+Math.sin(T+i)*1.2,pz)}
+  fa.needsUpdate=true;flies.material.opacity=S.y<85?night*(.6+.4*Math.sin(T*3)):0;
+  // zone & hud
+  let zc=null;for(const z of ZONES)if(Math.hypot(S.x-z.x,S.z-z.z)<z.r){zc=z;break}
+  $('zn').textContent=zc?zc.n:'Jalur Pendakian';curZone=zc;
+  if(zc&&!stamped.has(zc.id)){stamped.add(zc.id);try{localStorage.setItem('rinjani',JSON.stringify([...stamped]))}catch(e){}
+    toast('🔖 Stempel baru: '+zc.n+(stamped.size==5?' — Lencana Penakluk Rinjani! 🏅':'')+' · Ketuk 🧠 Kuis di pos ini');drawBook()}
+  $('alt').textContent='≈ '+Math.min(3726,Math.round(1156+14.3*S.y))+' mdpl';
+  $('clk').textContent=String(Math.floor(h)).padStart(2,'0')+':'+String(Math.floor(h%1*60)).padStart(2,'0');
+  $('fill').style.width=S.st+'%';$('slab').textContent=S.st<=0?'Stamina habis, duduk dulu ☕':(S.sit?'Beristirahat…':'Stamina');
+  drawMini();
+  renderer.render(scene,cam);
+}
+requestAnimationFrame(frame);
+setTimeout(()=>toast('Selamat datang di Gerbang Sembalun! Mulai mendaki ke arah gunung ⛰️'),600);
+</script></body></html>
